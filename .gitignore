@@ -1,0 +1,22 @@
+# Local secrets and machine-specific configuration
+secrets.h
+*.local
+.env
+.env.*
+
+# Arduino / build output
+build/
+*.bin
+*.elf
+*.map
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
