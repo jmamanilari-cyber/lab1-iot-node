@@ -38,6 +38,17 @@ No publique contraseñas o credenciales reales en un repositorio remoto.
 - Recuperación Wi-Fi: 3.43 s a 6.55 s; promedio aproximado 4.45 s.
 - Periodicidad: 59.88, 11.99 y 6.00 mensajes/min para 1 s, 5 s y 10 s.
 
-## Evidencias todavía necesarias
+## Evidencias de ejecución
 
-Para la entrega académica se deben añadir capturas reales de ejecución: broker Mosquitto, receptor HTTP, receptor MQTT, monitor serie del ESP32 y el historial del repositorio remoto.
+Las evidencias experimentales obtenidas durante la ejecución del laboratorio se encuentran en la carpeta `evidence/`.
+
+- `01_api_http.png`: recepción de telemetría mediante el servidor HTTP.
+- `02_esp32_http.png`: monitor serie del ESP32 durante las transmisiones HTTP.
+- `03_broker_mosquitto.png`: ejecución del broker Mosquitto y tráfico MQTT.
+- `04_receptor_mqtt_ack.png`: recepción de telemetría MQTT y envío del ACK de aplicación.
+- `05_esp32_mqtt_cerca.png`: monitor serie del ESP32 durante la prueba MQTT en condición CERCA.
+- `05_esp32_mqtt_lejos.png`: monitor serie del ESP32 durante la prueba MQTT en condición LEJOS.
+- `06_wifi_recovery.png`: evidencia de pérdida y recuperación automática de la conexión Wi-Fi.
+- `07_periodicidad_1s.png`: ejecución del experimento de periodicidad de transmisión.
+
+El historial de desarrollo y documentación del proyecto se encuentra registrado mediante los commits del repositorio.
