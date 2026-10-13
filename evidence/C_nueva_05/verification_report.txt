@@ -1,0 +1,45 @@
+VERIFICACION DOCUMENTAL - EXPERIMENTO C (NUEVA EJECUCION)
+run_id: 382a13d8_47f73bb9
+Ciclos exigidos: 30
+Ciclos con evidencia correlacionada: 0/30
+C_SUMMARY presente y coherente: NO
+Dictamen documental: INCOMPLETO
+Advertencia: esto no certifica mediciones historicas ni demuestra por si solo su origen fisico.
+
+Ciclo 1: ACK_OK cantidad=0 | recepciones MQTT=0 (esperado 1) | resultado no exitoso o secuencia no coincide
+Ciclo 2: ACK_OK cantidad=0 | recepciones MQTT=0 (esperado 1) | resultado no exitoso o secuencia no coincide
+Ciclo 3: ACK_OK cantidad=0 | recepciones MQTT=0 (esperado 1) | resultado no exitoso o secuencia no coincide
+Ciclo 4: ACK_OK cantidad=0 | recepciones MQTT=0 (esperado 1) | resultado no exitoso o secuencia no coincide
+Ciclo 5: ACK_OK cantidad=0 | recepciones MQTT=0 (esperado 1) | resultado no exitoso o secuencia no coincide
+Ciclo 6: ACK_OK cantidad=0 | recepciones MQTT=0 (esperado 1) | resultado no exitoso o secuencia no coincide
+Ciclo 7: ACK_OK cantidad=0 | recepciones MQTT=0 (esperado 1) | resultado no exitoso o secuencia no coincide
+Ciclo 8: ACK_OK cantidad=0 | recepciones MQTT=0 (esperado 1) | resultado no exitoso o secuencia no coincide
+Ciclo 9: ACK_OK cantidad=0 | recepciones MQTT=0 (esperado 1) | resultado no exitoso o secuencia no coincide
+Ciclo 10: ACK_OK cantidad=0 | recepciones MQTT=0 (esperado 1) | resultado no exitoso o secuencia no coincide
+Ciclo 11: ACK_OK cantidad=0 | recepciones MQTT=0 (esperado 1) | resultado no exitoso o secuencia no coincide
+Ciclo 12: ACK_OK cantidad=0 | recepciones MQTT=0 (esperado 1) | resultado no exitoso o secuencia no coincide
+Ciclo 13: ACK_OK cantidad=0 | recepciones MQTT=0 (esperado 1) | resultado no exitoso o secuencia no coincide
+Ciclo 14: ACK_OK cantidad=0 | recepciones MQTT=0 (esperado 1) | resultado no exitoso o secuencia no coincide
+Ciclo 15: ACK_OK cantidad=0 | recepciones MQTT=0 (esperado 1) | resultado no exitoso o secuencia no coincide
+Ciclo 16: ACK_OK cantidad=0 | recepciones MQTT=0 (esperado 1) | resultado no exitoso o secuencia no coincide
+Ciclo 17: ACK_OK cantidad=0 | recepciones MQTT=0 (esperado 1) | resultado no exitoso o secuencia no coincide
+Ciclo 18: ACK_OK cantidad=0 | recepciones MQTT=0 (esperado 1) | resultado no exitoso o secuencia no coincide
+Ciclo 19: ACK_OK cantidad=0 | recepciones MQTT=0 (esperado 1) | resultado no exitoso o secuencia no coincide
+Ciclo 20: ACK_OK cantidad=0 | recepciones MQTT=0 (esperado 1) | resultado no exitoso o secuencia no coincide
+Ciclo 21: ACK_OK cantidad=0 | recepciones MQTT=0 (esperado 1) | resultado no exitoso o secuencia no coincide
+Ciclo 22: ACK_OK cantidad=0 | recepciones MQTT=0 (esperado 1) | resultado no exitoso o secuencia no coincide
+Ciclo 23: ACK_OK cantidad=0 | recepciones MQTT=0 (esperado 1) | resultado no exitoso o secuencia no coincide
+Ciclo 24: ACK_OK cantidad=0 | recepciones MQTT=0 (esperado 1) | resultado no exitoso o secuencia no coincide
+Ciclo 25: ACK_OK cantidad=0 | recepciones MQTT=0 (esperado 1) | resultado no exitoso o secuencia no coincide
+Ciclo 26: ACK_OK cantidad=0 | recepciones MQTT=0 (esperado 1) | resultado no exitoso o secuencia no coincide
+Ciclo 27: ACK_OK cantidad=0 | recepciones MQTT=0 (esperado 1) | resultado no exitoso o secuencia no coincide
+Ciclo 28: ACK_OK cantidad=0 | recepciones MQTT=0 (esperado 1) | resultado no exitoso o secuencia no coincide
+Ciclo 29: ACK_OK cantidad=0 | recepciones MQTT=0 (esperado 1) | resultado no exitoso o secuencia no coincide
+Ciclo 30: ACK_OK cantidad=0 | recepciones MQTT=0 (esperado 1) | resultado no exitoso o secuencia no coincide
+
+SHA-256 de archivos originales al momento de verificar:
+device_raw.log: 668c588059e2dc6c7a2f48dc89cdc319dad82ebed658a27ff958edf04fcc1912
+device_events.csv: dab9960faa38a38a78798fa52c9a478f429a02583be54f4ebaf3f83e19907ac6
+device_results.csv: 98a8b67d91ba4c52166abf5504e54ee9f1dff5ad74ccfd534c82b5076540533a
+receiver_raw.jsonl: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+receiver_events.csv: 643d1cb2fae9a35cc1d8b6743e81247c44b6f05737596e9623345913fc31dc41
