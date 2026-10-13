@@ -1,0 +1,144 @@
+AMPLIACION: RELE Y DOS LED CON ESTADO MANTENIDO EN A, B, C Y D
+===========================================
+
+Esta version se basa en el ZIP original adjuntado por el usuario.
+Se conservan los programas completos, sus secciones y su configuracion.
+La ampliacion del rele y LED esta identificada como AGREGADO: RELE Y LEDS.
+En esta revision se modifica unicamente su tarea de control y los comentarios
+asociados para mantener el estado hasta la siguiente deteccion.
+
+NO requiere nodo.h ni mqtt_red.h. Cada .ino contiene su codigo completo.
+El SSID y la clave siguen dentro de cada .ino. La direccion HTTP sigue en
+HTTP_URL del experimento A. MQTT_BROKER sigue en B y D.
+
+CONEXIONES (ESP32 CLASICO DEVKIT/WROOM)
+-------------------------------------
+PIR OUT: GPIO27 (conservar conexion original).
+Rele IN: GPIO26, mediante un modulo con entrada compatible con 3.3 V.
+LED verde: GPIO25 -> resistencia 330 ohmios -> anodo; catodo a GND.
+LED rojo: GPIO33 -> resistencia 330 ohmios -> anodo; catodo a GND.
+
+Alimentar PIR y modulo de rele segun sus fichas. En modulo convencional no
+aislado compartir GND con ESP32. No alimentar la bobina desde un GPIO ni
+conectar 5 V a los GPIO. Un rele suelto necesita transistor y diodo; se asume
+modulo con etapa de manejo. Para esta practica usar carga de baja tension,
+no 220 V. La compatibilidad de IN a 3.3 V no se deduce de VCC=5 V.
+
+RELE_ACTIVO_BAJO = true para modulo que se activa con LOW.
+Cambiar a false si se activa con HIGH. Comprobar sin carga inicialmente.
+El programa ordena OFF al iniciar, pero durante reset el estado depende
+del modulo/driver y su polarizacion de entrada.
+
+FUNCIONAMIENTO
+--------------
+En los CUATRO experimentos:
+- Al iniciar: rele OFF, verde OFF, rojo ON.
+- Primera nueva deteccion: rele ON, verde ON, rojo OFF.
+- PIR vuelve a 0: las salidas CONSERVAN su estado.
+- Segunda nueva deteccion: rele OFF, verde OFF, rojo ON.
+- Siguientes detecciones: alternan entre ambos estados.
+
+Nueva deteccion significa flanco 0 -> 1. Mientras el PIR permanezca en 1,
+no se vuelve a cambiar el estado. Esperar a que regrese a 0 antes del nuevo
+movimiento. Si el ESP32 arranca con el PIR en 1, esperara primero a que baje.
+
+El estado se guarda en RAM durante la ejecucion, no en memoria permanente.
+Se conserva durante cortes de Wi-Fi y pausas de transmision. Se reinicia
+al apagar, pulsar EN/RESET o cargar otro experimento.
+Los LED indican la orden de iluminacion, no la conexion Wi-Fi.
+
+Se agrega una tarea de FreeRTOS que lee el PIR cada 20 ms nominales.
+Esto permite mantener control local durante las esperas originales de HTTP,
+MQTT, reconexion y periodicidad. La tarea no imprime ni modifica los
+contadores/temporizadores originales de las pruebas.
+
+Esta version NO agrega los 60 segundos de inhibicion de la version anterior:
+conserva los tiempos originales. La tarea detecta nuevos flancos del PIR
+desde su inicio. Dejar estabilizar el PIR segun su ficha antes de tomar datos; los
+estados de arranque pueden no corresponder a una deteccion real.
+
+Los estados reportados son ordenes de salida, no confirmaciones de que el
+contacto mecanico conmutó o la lampara encendio. Verificar eso visualmente.
+
+REGISTROS NUEVOS
+---------------
+A/B/D: JSON original conserva sus campos y agrega rele, led_verde, led_rojo.
+value es el estado actual del PIR; luz/rele son el estado guardado.
+Es normal recibir value=0, rele=1, led_verde=1, led_rojo=0: no hay presencia
+actual y la salida permanece encendida. La muestra completa se captura junta.
+En C se observan esos estados mediante las filas ACTUADORES del Monitor Serie.
+
+Todos los experimentos muestran:
+ACTUADORES,Millis,WiFi,PIR,Rele,LED_verde,LED_rojo,Cambios
+
+WiFi=0 significa desconectado; Cambios cuenta transiciones de la orden del
+rele desde el arranque. La impresion ocurre al detectar cambios o cada
+segundo cuando el loop puede ejecutarse. Si el loop queda esperando una
+operacion de red, la tarea mantiene las salidas pero la impresion se retrasa.
+
+A/B/D agregan tambien:
+ACTUADORES_TX,Secuencia,PIR,Rele,LED_verde,LED_rojo
+
+Relacionar esa secuencia con la transmision del experimento. No es una
+confirmacion de entrega. En D la secuencia continua entre condiciones,
+mientras que el contador Prueba del CSV original se reinicia por condicion.
+
+No se cambian las columnas de los CSV originales. Guardar las nuevas filas
+ACTUADORES por separado o conservar toda la salida del Monitor Serie.
+HTTP ya muestra el JSON completo. El receptor MQTT original muestra Luz
+(equivalente a la orden del rele); ver los LED en ACTUADORES_TX del ESP32.
+
+EJECUCION
+---------
+1. Descomprimir. Abrir el .ino del experimento en Arduino IDE.
+2. Editar SSID, clave y, para A/B/D, IP dentro de ese MISMO .ino.
+3. Configurar polaridad del rele dentro del .ino.
+4. A: ejecutar py .\services\receptor_http.py desde la raiz.
+5. B/D: iniciar Mosquitto con broker\mosquitto.conf. B requiere tambien
+   py .\services\mqtt_ack.py; configurar BROKER en ese .py como antes.
+6. Compilar/cargar el .ino, abrir Monitor Serie a 115200.
+7. Comprobar dos detecciones separadas por PIR=0 y la retencion de cada estado.
+
+A: repetir 30 transmisiones HTTP; capturar estados ON y OFF.
+B: el original trae CONDICION="LEJOS". Para empezar cerca, cambiar a
+   "CERCA" y luego repetir con "LEJOS". Conservar las 30 pruebas por caso.
+C: ejecutar los 5 cortes. Encender con una deteccion antes de cortar Wi-Fi.
+   Verificar que siga encendido sin red; luego, tras PIR=0, otra deteccion
+   debe apagarlo. Al recuperar Wi-Fi debe conservar el estado alcanzado.
+   Verificar que ACTUADORES muestre WiFi=0 y que el rele/LED sigan funcionando.
+   El tiempo original sigue midiendo desde la perdida detectada hasta la
+   reconexion; incluye el tiempo con el AP apagado. No es automaticamente
+   tiempo desde restaurar el AP.
+D: conservar 1/5/10 s y 30 publicaciones por condicion. Observar cambios de
+   salida entre publicaciones. Registrar de nuevo bytes, pues el JSON crecio.
+
+ARCHIVOS CONSERVADOS
+--------------------
+Servicios Python, informe Word, diagramas, datos, broker, README e instrucciones
+Git se mantienen con sus bytes originales. Sus resultados corresponden a
+la version anterior. No se han inventado resultados fisicos nuevos.
+Este LEEME complementa las instrucciones originales para las salidas nuevas.
+
+VALIDACION REALIZADA
+-------------------
+- Comparacion automatica: secciones del experimento y configuracion intactas;
+  solo cambian la tarea de actuadores y sus comentarios.
+- Los demas archivos originales permanecen identicos.
+- Cuatro sketches comprobados con g++ y API de Arduino/ESP32 simulada:
+  flancos 0->1, HIGH sostenido, retencion cuando baja a 0, estado sin Wi-Fi,
+  arranque con PIR alto y JSON de A/B/D con PIR=0 y rele=1.
+- Esta comprobacion no equivale a compilar con el core real Arduino-ESP32.
+  Falta compilar/cargar en la placa y verificar el modulo fisico.
+
+PRUEBA RAPIDA ANTES DE MEDIR
+--------------------------
+Para cada .ino, tras configurar/cargar:
+1. Estabilizar PIR. Esperar a ver PIR=0.
+2. Provocar deteccion: verde y rele ON.
+3. Esperar a PIR=0: verde y rele deben seguir ON.
+4. Provocar otra deteccion: rojo ON, rele OFF.
+5. Esperar a PIR=0: conservar rojo ON.
+6. Reiniciar para iniciar una corrida nueva si se van a recoger mediciones.
+
+Los periodos HTTP/MQTT no gobiernan el encendido; solo indican cuando se
+transmite una muestra. En D, cambiar de 1 a 5 a 10 s NO borra el estado.
