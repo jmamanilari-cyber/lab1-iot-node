@@ -1,7 +1,7 @@
 import json
 import paho.mqtt.client as mqtt
 
-BROKER = "TU_IP_BROKER"
+BROKER = "192.168.1.40"
 PORT = 1883
 
 TOPIC_TELEMETRY = "telecom/lab1/ESP32_LUZ_01/telemetry"
