@@ -1,0 +1,15 @@
+# Configuración privada de esta máquina
+/config/*
+!/config/database.example.php
+.env
+.env.*
+*.local
+*.local.*
+secrets.h
+secrets.php
+credentials.*
+passwords.*
+*.key
+*.pem
+mosquitto.conf
+*.log
