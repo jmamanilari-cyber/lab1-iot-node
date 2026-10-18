@@ -1,6 +1,6 @@
 # Laboratorio 2 — Preparación del entorno
 
-Estado: C1 implementada: recepción HTTP de telemetría, autenticación, validación y persistencia. Sin otros endpoints, MQTT ni firmware implementados.
+Estado: C1 y C2 implementadas: cinco endpoints REST con autenticación, validación y persistencia. Sin MQTT ni firmware implementados.
 El Laboratorio 1 permanece en sus directorios originales.
 
 ## Entorno comprobado (15 de octubre de 2026)
@@ -93,4 +93,37 @@ El Controller adapta HTTP; TelemetryService no lee cabeceras ni emite respuestas
 
 Las pruebas T01–T04 verifican respuestas y persistencia real; también comprueban 400, 403, tipos/límites y ausencia de inserciones rechazadas. La prueba concurrente usa cuatro procesos independientes del servicio contra MariaDB: el servidor PHP de Windows atiende HTTP en serie. Cada ejecución conserva una fila con secuencia nueva; no elimina datos ni ejecuta schema/seed. Detener el servidor con Ctrl+C al terminar.
 
-C2 y los demás endpoints requieren autorización antes de implementarse.
+## C2: consultas y configuración
+
+Aprovisionar una vez el administrador independiente (desde la raíz):
+
+```bat
+C:\xampp\php\php.exe lab2\scripts\provision-admin.php
+```
+
+El token aleatorio y su hash quedan exclusivamente en `config/admin.local.json`, ignorado por Git y fuera del directorio público. No se muestran en consola. Repetir conserva el token; `--rotate` lo renueva e invalida el anterior. No usar tokens en argumentos, URLs ni logs. El administrador no se autentica como dispositivo ante POST de C1.
+
+| Endpoint | Autorización | Resultado |
+|---|---|---|
+| GET `/api/v1/devices` | Administrador | Dispositivos sin hashes ni secretos |
+| GET `/api/v1/devices/{id}/telemetry` | Administrador o token del propio dispositivo | Histórico del recurso |
+| PUT `/api/v1/devices/{id}/config` | Administrador | Configuración persistida, **sin afirmar entrega al ESP32** |
+| GET `/api/v1/events` | Administrador | Eventos existentes; lista vacía válida |
+
+`{id}` es la clave interna positiva, no node_id. Una identidad válida sin permisos recibe 403; el administrador recibe 404 si el recurso no existe. No se revela la existencia de otros recursos a un token de dispositivo.
+
+Listas: `limit` 1..100 (25 por defecto), `offset` 0..1000000 (0 por defecto). `meta` contiene limit, offset, count y has_more; no se calcula total. Orden estable: dispositivos por id; telemetría por campo temporal e id; eventos por ts e id. La paginación no representa una instantánea frente a modificaciones concurrentes.
+
+Histórico: `from` y `to` son Unix UTC enteros 0..253402300799, intervalo `[from,to)`; `time_field=received_at` por defecto o `timestamp` para usar telemetry.ts. Con filtros sobre timestamp, los registros null quedan excluidos; sin límites temporales se conservan. Eventos admite esos mismos límites sobre events.ts y filtros `device_id`, `type` (1..64 caracteres alfanuméricos/guion/subrayado), `severity=info|warning|error`. Los parámetros desconocidos, arrays y límites inválidos reciben 422.
+
+PUT acepta exclusivamente un objeto con `key` (1..64 caracteres alfanuméricos/guion/subrayado) y `value` (cualquier valor JSON, incluido null, hasta 4096 bytes y profundidad 8). Cuerpo máximo 16384 bytes. Actualiza únicamente la pareja dispositivo/key o la inserta si no existe, dentro de una transacción. Responde 200 con value, updated_at UTC y persisted=true; no se envía al nodo. Las claves y sus significados funcionales se definirán al integrar el consumidor, sin ejecutar sus valores en el backend.
+
+Para verificar, iniciar el mismo servidor local documentado en C1 y, en otra terminal:
+
+```bat
+C:\xampp\php\php.exe lab2\tests\c2-http.php http://127.0.0.1:18082
+```
+
+Las pruebas requieren los tokens locales de C1 y el administrador. Verifican autorización, consultas, filtros, errores, paginación y persistencia de configuración mediante PDO. Agregan dos telemetrías, tres eventos y una configuración de prueba por ejecución, con identidades nuevas; no borran datos ni sobrescriben claves previas. La única comprobación C1 es rechazar el token administrativo en POST, porque cambió el punto de entrada del enrutamiento; no se repite su suite.
+
+Detener el servidor con Ctrl+C. Las siguientes etapas requieren autorización.
