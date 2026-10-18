@@ -31,6 +31,14 @@ final class DeviceRepository
         $query->execute(['id' => $id]);
     }
 
+    public function findByNodeId(string $nodeId): ?array
+    {
+        $query = $this->pdo->prepare('SELECT id, node_id FROM devices WHERE node_id = :node_id');
+        $query->execute(['node_id' => $nodeId]);
+        $row = $query->fetch();
+        return $row ? ['id' => (int) $row['id'], 'node_id' => $row['node_id']] : null;
+    }
+
     public function lockForIngestion(int $id, string $nodeId): void
     {
         // Serialize ingestion per node; avoids duplicate-key lock upgrade deadlocks.

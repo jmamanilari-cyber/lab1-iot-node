@@ -1,6 +1,6 @@
 # Laboratorio 2 — Preparación del entorno
 
-Estado: C1 y C2 implementadas: cinco endpoints REST con autenticación, validación y persistencia. Sin MQTT ni firmware implementados.
+Estado: C1/C2 implementadas y D1 MQTT incorporada mediante subscriber PHP CLI y herramientas Mosquitto instaladas. Sin firmware implementado.
 El Laboratorio 1 permanece en sus directorios originales.
 
 ## Entorno comprobado (15 de octubre de 2026)
@@ -127,3 +127,11 @@ C:\xampp\php\php.exe lab2\tests\c2-http.php http://127.0.0.1:18082
 Las pruebas requieren los tokens locales de C1 y el administrador. Verifican autorización, consultas, filtros, errores, paginación y persistencia de configuración mediante PDO. Agregan dos telemetrías, tres eventos y una configuración de prueba por ejecución, con identidades nuevas; no borran datos ni sobrescriben claves previas. La única comprobación C1 es rechazar el token administrativo en POST, porque cambió el punto de entrada del enrutamiento; no se repite su suite.
 
 Detener el servidor con Ctrl+C. Las siguientes etapas requieren autorización.
+
+## D1 MQTT
+
+Consulte [MQTT_D1.md](docs/MQTT_D1.md) para preparación local privada, verificación
+de autenticación/ACL, subscriber y pruebas reproducibles. Se utiliza una instancia
+aislada en 127.0.0.1:1884; el broker existente de 1883 no se modifica ni se da por
+seguro. No se instalan dependencias. La documentación explica el límite entre
+PUBACK MQTT y confirmación de persistencia en MariaDB.

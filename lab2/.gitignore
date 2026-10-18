@@ -1,6 +1,7 @@
 # Configuración privada de esta máquina
 /config/*
 !/config/database.example.php
+!/config/mqtt.example.php
 .env
 .env.*
 *.local
