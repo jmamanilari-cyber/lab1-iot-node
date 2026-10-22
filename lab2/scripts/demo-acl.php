@@ -22,7 +22,7 @@ try {
     $cases[] = ['Suscriptor intenta publicar', $c['subscriber_options'], 'lab2/esp32-01/telemetry', 135];
 
     echo "=== PETICIONES MQTT REALES AL BROKER 1884 ===\n";
-    echo "Motivo MQTT 5: 0=aceptado, 135=no autorizado (ACL/autenticacion).\n";
+    echo "Motivo MQTT 5: 0=aceptado, 16=aceptado sin suscriptores coincidentes, 135=no autorizado.\n";
     $failed = 0;
     foreach ($cases as [$label, $options, $topic, $expected]) {
         [$exit, $output] = \Lab2\MqttRuntime::command([
@@ -39,10 +39,14 @@ try {
             $code = -1;
             $origin = 'PUBACK no encontrado';
         }
-        $ok = $code === $expected;
+        // En MQTT 5 PUBACK=16 implica aceptacion, pero sin destinatarios activos.
+        $ok = $expected === 0
+            ? in_array($code, [0, 16], true)
+            : $code === $expected;
         if (!$ok) { $failed++; }
-        printf("[%s] %-47s | %s=%d | esperado=%d\n",
-            $ok ? 'OK' : 'ERROR', $label, $origin, $code, $expected);
+        $expectedLabel = $expected === 0 ? '0 o 16' : (string) $expected;
+        printf("[%s] %-47s | %s=%d | esperado=%s\n",
+            $ok ? 'OK' : 'ERROR', $label, $origin, $code, $expectedLabel);
     }
     printf("TOTAL: %d comprobaciones MQTT, %d discrepancias.\n", count($cases), $failed);
     if ($failed !== 0) { exit(1); }
