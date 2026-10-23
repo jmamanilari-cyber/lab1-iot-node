@@ -1,7 +1,15 @@
 # Laboratorio 2 — Preparación del entorno
 
-Estado: C1/C2 implementadas y D1 MQTT incorporada mediante subscriber PHP CLI y herramientas Mosquitto instaladas. Sin firmware implementado.
+Estado: C1/C2 implementadas y D1 MQTT incorporada mediante subscriber PHP CLI y herramientas Mosquitto instaladas. Primera unidad de firmware E1 para `esp32-02` implementada; falta validación física y despliegue TLS por LAN.
 El Laboratorio 1 permanece en sus directorios originales.
+
+## E1: ESP32 #2 por HTTPS
+
+Firmware separado con PIR explícitamente simulado, RSSI Wi-Fi real, secuencia y
+mensaje pendiente en NVS, y reintentos idempotentes. Conserva el contrato HTTP.
+Consulte [FIRMWARE_E1_HTTP.md](docs/FIRMWARE_E1_HTTP.md) para certificados,
+proxy TLS Apache hacia PHP de loopback, configuración privada, compilación y
+pruebas. No enviar tokens por HTTP en LAN ni desactivar validación TLS.
 
 ## Entorno comprobado (15 de octubre de 2026)
 
@@ -21,7 +29,7 @@ lab2/
   src/        Lógica PHP futura
   config/     Configuración local privada
   sql/        Esquema y scripts futuros
-  firmware/   Firmware futuro
+  firmware/   Firmware E1 y pruebas físicas aisladas
   docs/       Documentación del laboratorio
   README.md
   .gitignore
