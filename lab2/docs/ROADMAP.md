@@ -3,7 +3,7 @@
 **Checkpoint:** cierre de sesión del 23 de octubre de 2026; revisión presencial del 21/10 completada sin observaciones. Los ensayos físicos de este cierre fueron confirmados por el usuario; no se repitieron durante esta actualización documental.
 **Producto:** https://github.com/jmamanilari-cyber/lab1-iot-node  
 **Continuidad:** https://github.com/FAJIFBEFJHA/ai-assisted-development-workflow/blob/main/projects/lab1-iot-node/PROJECT_CONTEXT.md  
-**Commit de referencia comprobado:** `4328fba` (corrección PUBACK 0/16); antecedentes `81f334b` (roadmap anterior) y `a21b529` (script de demostración). E1 y documentos tienen cambios locales; este cierre no realiza commits ni push.
+**Commit de referencia comprobado:** `bd66035`, último commit publicado confirmado por el usuario; el historial local contiene el avance desde `4328fba`. Serie E1: `04b29a3` (firmware HTTPS), `6e3816a` (pruebas E1 y sketch PIR/relé), `bd66035` (documentación E1 y ROADMAP). `4328fba` corresponde exclusivamente a la corrección MQTT PUBACK 0/16; antecedentes `81f334b` (roadmap anterior) y `a21b529` (demostración). Estas correcciones documentales posteriores quedan locales para un commit nuevo y separado del usuario; no se modifica el historial publicado ni se realizan commits/push aquí.
 **Guía:** `docs/Laboratior 2 guia.pdf`, disponible localmente; no asumir que los archivos PDF no versionados están en GitHub.
 
 ## Alcance y criterios
@@ -24,8 +24,8 @@ Rutas implementadas: `POST /api/v1/telemetry`, `GET /api/v1/devices`, `GET /api/
 | C2. API REST restante | Probada en escritorio **y laptop** | Cuatro endpoints, filtros, permisos, configuración; `fc49604` |
 | D1. MQTT seguro de loopback | Probada en escritorio **y laptop** | ACL, subscriber, duplicados, reanudación; `c26627d` |
 | H. Herramienta de demostración | **Verificada en laptop y escritorio**; corrección PUBACK publicada | Menú opciones 1–7; `4328fba` acepta PUBACK 0/16; falta nueva evidencia de 12/12 ACL tras la corrección |
-| D2. Broker MQTT para ESP32 por LAN | Pendiente | 1884 escucha solo en 127.0.0.1, no accesible al ESP32 |
-| E0. Diagnóstico de hardware | Parcial; tres placas comprobadas en diagnóstico básico | Prueba independiente PIR/relé completada; #1 con PIR físico, BC548, relé y LED; calibración final e integración pendientes |
+| D2. Broker MQTT para ESP32 por LAN | Pendiente; tarea explícita de integración D2 abajo | D1 sigue en 127.0.0.1:1884; falta acceso desde la red de demostración con autenticación/ACL y recepción/persistencia de mensajes desde ESP32 físicos |
+| E0. Diagnóstico de hardware | Parcial; tres placas comprobadas en diagnóstico básico | Prueba independiente PIR/relé y retención funcional aproximada de 10 s verificadas; montaje posterior con LED y 330 Ω; caracterización cuantitativa, calibración e integración pendientes |
 | E1. Firmware de un ESP32 | Implementado y parcialmente validado en #2; HTTPS portátil bloqueado por preparar red/servidor | 201 seq 37–39 en escritorio; hotspot obtiene IP en 1227 ms pero HTTP=-1 con destino anterior. MQTT físico sigue pendiente |
 | E2. Tres nodos físicos | Pendiente de integración conjunta | #1 físico; #2/#3 PIR simulado con radio real; falta completar firmware #1/#3 y ensayo concurrente |
 | F. T05–T08, carga | Parcial | Concurrencia HTTP 4 procesos probada; faltan ensayo multinodo físico, carga, p50/p95 |
@@ -130,23 +130,24 @@ Esta lista ordena los pendientes de E0/E1/E2/D2/F/G existentes, sin sustituirlos
 | P08 | Comprobar HTTP 201 y secuencias consecutivas | Bloqueado | P07; un pendiente ya persistido puede responder 200 antes de muestras nuevas 201 |
 | P09 | Definir cómo localizar el servidor si cambia su IP | Pendiente | P02–P03; estrategia reproducible y ensayo de reconexión, sin depender de DNS inexistente ni omitir validación TLS |
 | P10 | Tres arranques RESET/EN y registro de tiempo real hasta IP | Bloqueado hasta validar entorno | P08–P09; seguir `WIFI_E1_VALIDACION.md`, registrar esperas/fallos, no afirmar éxito por un solo arranque |
-| P11 | Continuar integración ESP32 #1 (PIR físico, BC548, relé, LED y comunicación) | Parcial: prueba independiente PIR/relé completada | P10 como base de red/servidor; calibración/retención pendientes conservadas |
-| P12 | Completar firmware previsto de ESP32 #3, identidad propia y PIR simulado | Pendiente | P10; radio real y etiqueta explícita de simulación |
-| P13 | Ensayo conjunto de tres nodos conectados al hotspot | Bloqueado por P11–P12 | Tres placas físicas; implementar/verificar D2 antes de declarar MQTT físico seguro por LAN |
+| P11 | Continuar integración ESP32 #1 (PIR físico, BC548, relé, LED y comunicación) | Parcial: prueba independiente y retención funcional aproximada de 10 s verificadas | Desarrollo local en paralelo, sin esperar P10; pruebas de red cuando P03–P07 estén disponibles. Caracterización cuantitativa del tiempo y calibración final pendientes |
+| P12 | Completar firmware previsto de ESP32 #3, identidad propia y PIR simulado | Pendiente | Desarrollo local en paralelo, sin esperar P10; pruebas de radio real cuando P03–P07 estén disponibles; etiqueta explícita de simulación |
+| D2 | Exponer broker MQTT a la red de demostración manteniendo autenticación y ACL; verificar conexión, recepción y persistencia desde ESP32 físicos | Pendiente; no implementado | P02–P03 y servicios PHP/MariaDB de laptop disponibles; puede avanzar en paralelo a P10/P11/P12. Aceptación: conexión/publicación autorizada, rechazos de autenticación/ACL y mensaje recibido y persistido en MariaDB; D1 loopback no basta |
+| P13 | Ensayo conjunto de tres nodos conectados al hotspot | Bloqueado por P10, P11, P12 y D2 | Conectividad y servicios verificados, tres arranques de #2 y pruebas necesarias; tres placas físicas, HTTPS y MQTT seguro por LAN con recepción/persistencia comprobadas |
 | P14 | Verificar persistencia, reintentos e interrupciones | Pendiente | P13; ensayos reales y contenido idéntico en reintentos, sin borrar NVS ni resembrar BD |
 | P15 | Recopilar evidencias experimentales, T05–T08 y métricas | Parcial: evidencia backend y ensayos aislados disponibles | P13–P14, D2/F según transporte; throughput y p50/p95 siguen pendientes |
 | P16 | Preparar y ensayar demostración docente e informe final | Pendiente | P15 y G; laptop como servidor, distinguir resultados y límites; cierre técnico 27/10 ~22:30 |
 
-Si el hotspot aísla clientes, **P03 bloquea el transporte local**: documentar y resolver esa conectividad antes de tocar certificados o multiplicar reintentos. MQTT seguro D2, migración M y nueva evidencia ACL 12/12 siguen vigentes; no priorizar migración/invitaciones sobre servidor portátil, integración y entrega.
+Si el hotspot aísla clientes, **P03 bloquea el transporte local**: documentar y resolver esa conectividad antes de tocar certificados o multiplicar reintentos. No bloquea el desarrollo local de #1/#3. D2 se detalla una sola vez como tarea de integración en esta lista, conservando su etapa en la tabla general; la nueva evidencia ACL 12/12 posterior a `4328fba` sigue pendiente y no se presume cubierta por D2. Migración M sigue vigente, sin prioridad sobre servidor portátil, integración y entrega.
 
-**Primera tarea de la siguiente sesión:** P01 y registro de P02: conectar la laptop al hotspot Android de 2,4 GHz e identificar su IPv4/subred. Este cierre solo actualiza seguimiento, sin implementar P01–P16.
+**Primera tarea de la siguiente sesión:** P01 y registro de P02: conectar la laptop al hotspot Android de 2,4 GHz e identificar su IPv4/subred. Esta corrección solo actualiza seguimiento, sin implementar P01–P16 ni D2.
 
 ## Hardware real — etapa E0
 
 - **Tres ESP32 disponibles y comprobadas mediante diagnósticos básicos**; una identificada como NodeMCU ESP-32S V1.1 (38 pines). La integración de los tres nodos y su transmisión concurrente siguen pendientes.
-- Relé JQC-3FF-S-Z 5V: la conexión directa GPIO26 no liberaba correctamente con nivel HIGH de 3.3 V. Solución **probada aisladamente**: BC548 NPN, resistencia 1 kΩ GPIO26→base, emisor a GND y colector a IN del módulo; relé VCC 5V y GND común. Bornes COM/NO/NC sin carga.
-- PIR compatible HC-SR501/BISS0001, OUT→GPIO27: prueba independiente PIR/relé completada. Antecedente de sensibilidad/rango aparentemente excesivos; no se confirmó calibración final, retención ni rango medidos. Sin prueba suficiente de defecto.
-- ESP32 #1 con PIR físico, BC548, relé y LED para simular iluminación; continuar integración conjunta del firmware. No inferir integración de tres nodos por la prueba aislada de PIR/relé ni conservar como hecho actual el antiguo estado de LED desconectados.
+- Relé JQC-3FF-S-Z 5V: la conexión directa GPIO26 no liberaba correctamente con nivel HIGH de 3.3 V. Solución **probada aisladamente**: BC548 NPN, resistencia 1 kΩ GPIO26→base, emisor a GND y colector a IN del módulo; relé VCC 5V y GND común. **Prueba inicial histórica:** contactos COM/NO/NC sin carga. **Montaje posterior confirmado por el usuario:** LED de baja tensión con resistencia de **330 Ω** para representar iluminación; no describir el montaje actual como necesariamente sin carga.
+- PIR compatible HC-SR501/BISS0001, OUT→GPIO27: prueba independiente PIR/relé completada con **retención funcional aproximada de 10 s**, renovada ante nueva detección. En `firmware/pruebas/pir_rele_10s/pir_rele_10s/pir_rele_10s.ino`, `HOLD_TIME_MS=10000UL`; `lastMotionTime` se renueva mientras OUT está HIGH y el apagado exige OUT LOW y al menos 10000 ms desde la última detección registrada. Esto no caracteriza cuantitativamente el tiempo real ni el temporizador interno del PIR. Calibración final, rango y caracterización temporal pendientes; no hay prueba suficiente de defecto.
+- ESP32 #1 con PIR físico, BC548, relé y LED para simular iluminación; integración con el firmware definitivo/multinodo pendiente. El sketch de prueba controla GPIO27 (PIR) y GPIO26 (relé), pero no documenta el cableado del LED, el borne conmutado COM/NO/NC ni su alimentación exacta: **pendientes de confirmación**, sin inferirlos de esquemas históricos de Lab1. No equiparar prueba funcional independiente con validación final.
 - **Tres ESP32 físicos son obligatorios**, pero solo ESP32 #1 necesita PIR, relé y LED físicos. El profesor **autorizó simular el valor PIR** de ESP32 #2 y #3; no comprar periféricos duplicados. Los tres ESP32 deberán enviar mensajes reales por la red con identidad propia; etiquetar los valores PIR simulados y no presentarlos como mediciones reales.
 - Seguridad: solo USB/baja tensión; desconectar antes de modificar conexiones; no conectar red eléctrica a bornes del relé.
 
@@ -158,7 +159,7 @@ Si el hotspot aísla clientes, **P03 bloquea el transporte local**: documentar y
 |---|---|---|
 | **Mar 20** | **Completado** | Laptop: siete opciones del menú, REST/MQTT, SQL, concurrencia y apagado de servicios verificados |
 | **Mié 21** | **Completado** | Revisión de avance realizada sin observaciones; confirmar corrección del diagnóstico `demo-acl.php` cuando se retome |
-| **Jue 22** | Bloques previstos: 13:00–14:15, 17:30–20:00, reserva 21:00–22:30 | Inicio E1 documentado; no dar por completadas calibración/retención por el plan original |
+| **Jue 22** | Bloques previstos: 13:00–14:15, 17:30–20:00, reserva 21:00–22:30 | Inicio E1 documentado; no dar por completadas calibración y caracterización cuantitativa del tiempo por el plan original |
 | **Vie 23** | Cierre parcial; bloques previstos 13:30–17:00 y 20:00–22:30 | Tres placas diagnosticadas, E1 HTTPS probado en escritorio; fallo Claro persiste, hotspot obtiene IP pero HTTPS pendiente. Adoptada laptop/hotspot |
 | **Sáb 24** | 13:30–17:00 y 19:30–22:00 | Prioridad P01–P10: servidor portátil y E1 HTTPS reproducible; avanzar D2 MQTT seguro por LAN después de resolver conectividad |
 | **Dom 25** | Solo 20:30–22:00, flexible | Documentación o migración de repositorios, sin comprometer la entrega |
@@ -168,7 +169,7 @@ Si el hotspot aísla clientes, **P03 bloquea el transporte local**: documentar y
 
 **Contingencias:** si falla una placa, no presentar un cliente de computadora como ESP32 físico; comunicar el bloqueo. PIR simulado en los ESP32 #2/#3 está autorizado, pero la comunicación de las tres placas debe ser real. Si D2 LAN se retrasa, distinguirlo claramente del broker D1 local. Priorizar los criterios del laboratorio sobre la migración del repositorio.
 
-El cronograma mantiene la disponibilidad y metas vigentes; su ejecución queda subordinada a las dependencias P01–P16. No volver al panel Claro ni solicitar separación de bandas como requisito del laboratorio. La red principal de ensayo y presentación es el hotspot Android con laptop.
+El cronograma mantiene la disponibilidad y metas vigentes; su ejecución queda subordinada a P01–P16 y D2, permitiendo desarrollo local paralelo de #1/#3 antes de completar P10. No volver al panel Claro ni solicitar separación de bandas como requisito del laboratorio. La red principal de ensayo y presentación es el hotspot Android con laptop.
 
 ## M. Separación de repositorios y colaboración (pendiente)
 
