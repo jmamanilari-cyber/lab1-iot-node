@@ -2,6 +2,7 @@
 /config/*
 !/config/database.example.php
 !/config/mqtt.example.php
+!/config/https-e1.example.conf
 .env
 .env.*
 *.local
