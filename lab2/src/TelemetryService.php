@@ -18,8 +18,9 @@ final class TelemetryService
     }
 
     /** trustedNodeId must come from an authenticated adapter, never the payload. */
-    public function receive(stdClass $payload, int $deviceId, string $trustedNodeId): array
+    public function receive(stdClass $payload, int $deviceId, string $trustedNodeId, string $transport = 'unknown'): array
     {
+        $latency = new TelemetryLatency($transport, $trustedNodeId, $payload->seq ?? null);
         $data = self::validate($payload);
         if ($data['node_id'] !== $trustedNodeId) {
             throw new ApiException(403, 'identity_mismatch', 'El token no pertenece al nodo solicitado.');
@@ -39,6 +40,7 @@ final class TelemetryService
             }
             throw $error;
         }
+        $latency->markSuccess($created);
         return ['created' => $created, 'data' => [
             'telemetry_id' => (int) $row['id'], 'node_id' => $trustedNodeId, 'seq' => (int) $row['seq'],
             'timestamp' => $row['ts'] === null ? null : (int) $row['ts'],

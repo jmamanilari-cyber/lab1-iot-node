@@ -15,3 +15,4 @@ passwords.*
 *.pem
 mosquitto.conf
 *.log
+/logs/latency/

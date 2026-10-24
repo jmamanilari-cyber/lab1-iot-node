@@ -39,7 +39,7 @@ final class TelemetryController
             if (!$payload instanceof \stdClass) {
                 throw new ApiException(422, 'validation_error', 'El cuerpo debe ser un objeto JSON.');
             }
-            $result = (new TelemetryService($pdo))->receive($payload, $device['id'], $device['node_id']);
+            $result = (new TelemetryService($pdo))->receive($payload, $device['id'], $device['node_id'], 'http');
             http_response_code($result['created'] ? 201 : 200);
             $body = ['ok' => true, 'data' => $result['data'], 'meta' => ['api_version' => 'v1', 'created' => $result['created']]];
         } catch (ApiException $error) {

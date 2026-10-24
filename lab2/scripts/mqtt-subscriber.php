@@ -88,7 +88,7 @@ try {
             if ($device === null) { throw new Lab2\ApiException(403, 'unknown_device', 'Dispositivo no registrado.'); }
             // Trust derives from verified broker authentication and exact per-user
             // write ACLs. MQTT does not expose the original publisher username.
-            $result = (new Lab2\TelemetryService($pdo))->receive($payload, $device['id'], $device['node_id']);
+            $result = (new Lab2\TelemetryService($pdo))->receive($payload, $device['id'], $device['node_id'], 'mqtt');
             $record += ['event' => $result['created'] ? 'created' : 'duplicate', 'telemetry_id' => $result['data']['telemetry_id']];
         } catch (Lab2\ApiException $error) {
             $record += ['event' => 'rejected', 'code' => $error->errorCode];
