@@ -1,4 +1,5 @@
 #include <WiFi.h>
+#include <WiFiUdp.h>
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 #include <Preferences.h>
@@ -19,6 +20,88 @@ constexpr uint32_t SAMPLE_MS = 10000;
 constexpr time_t MIN_TLS_TIME = 1767225600;  // 2026-01-01; no usar reloj de 1970 para TLS.
 constexpr char SERVER_TLS_NAME[] = "telemetry.lab.test";
 constexpr uint16_t SERVER_TLS_PORT = 8443;
+
+// Solo communication() usa este estado. UDP anuncia una direccion candidata;
+// HTTPS sigue autenticando telemetry.lab.test con CA, SAN y vigencia.
+class ServerDiscovery {
+  static constexpr uint16_t PORT = 37020;
+  static constexpr uint32_t INTERVAL_MS = 3000;
+  WiFiUDP udp;
+  IPAddress local, mask, gateway, server;
+  String bssid;
+  bool listening = false, waiting = false;
+  uint32_t lastTry = 0;
+  char expected[64]{};
+public:
+  IPAddress address() const { return server; }
+  bool ready() const { return static_cast<uint32_t>(server) != 0; }
+
+  void invalidate() {
+    udp.stop();
+    listening = waiting = false;
+    server = IPAddress();
+    lastTry = millis();
+  }
+
+  void poll(bool online, uint32_t now) {
+    if (!online) {
+      if (listening || ready()) invalidate();
+      local = IPAddress();
+      return;
+    }
+    const IPAddress currentIP = WiFi.localIP();
+    const IPAddress currentMask = WiFi.subnetMask();
+    const IPAddress currentGateway = WiFi.gatewayIP();
+    const String currentBssid = WiFi.BSSIDstr();
+    if (local != currentIP || mask != currentMask || gateway != currentGateway || bssid != currentBssid) {
+      invalidate();
+      local = currentIP;
+      mask = currentMask;
+      gateway = currentGateway;
+      bssid = currentBssid;
+      lastTry = now - INTERVAL_MS;  // Primera busqueda tras DHCP, sin espera.
+    }
+    if (ready()) return;
+
+    // Un datagrama por iteracion; no esperar respuestas ni drenar en un bucle.
+    const int size = listening ? udp.parsePacket() : 0;
+    if (size > 0) {
+      const IPAddress sender = udp.remoteIP();
+      const uint16_t port = udp.remotePort();
+      char reply[64];
+      const int count = udp.read(reinterpret_cast<uint8_t*>(reply), sizeof(reply) - 1);
+      udp.clear();
+      if (waiting && now - lastTry < INTERVAL_MS && port == PORT &&
+          size == static_cast<int>(strlen(expected)) && count == size &&
+          memcmp(reply, expected, count) == 0 && static_cast<uint32_t>(sender) != 0 && sender != local) {
+        server = sender;
+        udp.stop();
+        listening = waiting = false;
+        Serial.printf("SERVIDOR DESCUBIERTO: %s; HTTPS %s:%u\n",
+                      server.toString().c_str(), SERVER_TLS_NAME, SERVER_TLS_PORT);
+        return;
+      }
+    }
+    if (now - lastTry < INTERVAL_MS) return;
+    lastTry = now;
+    waiting = false;
+    if (!listening) listening = udp.begin(PORT) != 0;
+    if (!listening) return;  // Reintentar abrir como maximo cada tres segundos.
+    IPAddress broadcast;
+    for (uint8_t i = 0; i < 4; ++i) broadcast[i] = local[i] | static_cast<uint8_t>(~mask[i]);
+    const unsigned long nonce = static_cast<unsigned long>(esp_random());
+    char request[64];
+    snprintf(request, sizeof(request), "UDP_DISCOVERY_TEST_V1 %08lX", nonce);
+    snprintf(expected, sizeof(expected), "UDP_DISCOVERY_REPLY_V1 %08lX", nonce);
+    if (udp.beginPacket(broadcast, PORT)) {
+      udp.write(reinterpret_cast<const uint8_t*>(request), strlen(request));
+      waiting = udp.endPacket() == 1;
+    }
+    Serial.println(waiting ? "Descubrimiento UDP: broadcast enviado."
+                           : "Descubrimiento UDP: fallo de envio; se reintentara.");
+  }
+};
+ServerDiscovery discovery;
 
 // El callback corre en la tarea de eventos del core, no en communication().
 // Solo copia datos no sensibles a una cola; nunca conecta, imprime ni toca NVS.
@@ -109,6 +192,7 @@ void pollWifiEvents(bool& hasIP, uint32_t& offlineSince, uint32_t& watchdogAt) {
         Serial.printf("AUTHMODE_CHANGE | anterior=%u nuevo=%u\n", notice.oldAuth, notice.auth);
         break;
       default:
+        discovery.invalidate();
         if (hasIP) offlineSince = watchdogAt = notice.at;
         hasIP = false;
         if (notice.event == ARDUINO_EVENT_WIFI_STA_DISCONNECTED) {
@@ -125,19 +209,22 @@ void pollWifiEvents(bool& hasIP, uint32_t& offlineSince, uint32_t& watchdogAt) {
   }
 }
 
-// HTTPClient conserva el nombre en la URL/Host; solo el destino TCP usa IP fija.
+// HTTPClient conserva el nombre en la URL/Host; TCP usa la IP descubierta.
 // Requiere Arduino-ESP32 3.3.8: sobrecarga IP + nombre para SNI y verificacion SAN.
 class DirectServerTlsClient : public WiFiClientSecure {
+  IPAddress serverIP;
 public:
+  explicit DirectServerTlsClient(IPAddress address) : serverIP(address) {}
   using WiFiClientSecure::connect;
   int connect(const char* host, uint16_t port) override {
     return connect(host, port, 3000);
   }
   int connect(const char* host, uint16_t port, int32_t timeout) override {
     if (!host || strcmp(host, SERVER_TLS_NAME) || port != SERVER_TLS_PORT
+        || static_cast<uint32_t>(serverIP) == 0
         || !_CA_cert || !_CA_cert[0] || _use_insecure) return 0;
     _timeout = timeout;  // La sobrecarga de seis argumentos utiliza este timeout.
-    return WiFiClientSecure::connect(IPAddress(192, 168, 0, 3), port,
+    return WiFiClientSecure::connect(serverIP, port,
                                      SERVER_TLS_NAME, _CA_cert, nullptr, nullptr);
   }
 };
@@ -219,7 +306,7 @@ bool validAck(const AckBuffer& body) {
 
 e1::Outcome transmit(uint32_t& serverWait) {
   serverWait = 0;
-  DirectServerTlsClient tls;
+  DirectServerTlsClient tls(discovery.address());
   tls.setCACert(TLS_ROOT_CA);  // CA + hostname + vigencia. Nunca setInsecure().
   tls.setHandshakeTimeout(5);
   HTTPClient http;
@@ -242,13 +329,22 @@ e1::Outcome transmit(uint32_t& serverWait) {
     if (digits) serverWait = static_cast<uint32_t>(min(after.toInt(), 3600L)) * 1000U;
   }
   bool ack = false;
+  bool transportLost = code < 0;
   if (code == 200 || code == 201) {
     AckBuffer body;
-    if (http.getSize() <= 2048 && http.writeToStream(&body) >= 0 && !body.overflow) ack = validAck(body);
+    if (http.getSize() <= 2048) {
+      const int received = http.writeToStream(&body);
+      transportLost = received < 0 && !body.overflow;
+      if (received >= 0 && !body.overflow) ack = validAck(body);
+    }
   }
   Serial.printf("HTTP=%d seq=%llu ack=%u PIR=SIMULADO\n", code,
                 static_cast<unsigned long long>(state.pendingSeq), ack ? 1U : 0U);
   http.end();
+  if (transportLost) {
+    discovery.invalidate();  // Transporte/TLS perdido; no invalidar por HTTP 429/503.
+    Serial.println("HTTPS sin conectividad; se repetira el descubrimiento UDP.");
+  }
   return e1::classify(code, ack);
 }
 
@@ -287,6 +383,7 @@ void communication(void*) {
         offlineSince = wifiWatchdogAt = now;
       }
       if (online) wifiHasIP = true;
+      discovery.poll(online, now);
       if (online && !sntpStarted) {
         configTime(0, 0, "pool.ntp.org", "time.nist.gov"); // Solo despues de Wi-Fi + IPv4 valida.
         sntpStarted = true;
@@ -310,7 +407,7 @@ void communication(void*) {
           if (!e1::prepare(candidate, WiFi.RSSI())) stop("secuencia agotada o muestra invalida");
           else save(candidate);  // Obligatorio antes de tocar la red.
         }
-        if (!halted && state.body[0]) {
+        if (!halted && state.body[0] && discovery.ready()) {
           uint32_t serverWait = 0;
           const auto result = transmit(serverWait);  // E/S sincrona acotada, aislada del loop principal.
           retryStart = millis();
