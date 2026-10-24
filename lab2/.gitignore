@@ -16,3 +16,4 @@ passwords.*
 mosquitto.conf
 *.log
 /logs/latency/
+/.runtime/start-lab2/
