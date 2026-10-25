@@ -65,6 +65,57 @@ class FakeSerial:
 
 
 class SerialCaptureTests(unittest.TestCase):
+    def diagnostic_reader(self, streams):
+        controller=capture.Capture()
+        controller.echo=False
+        reader=capture.PortReader(controller,port())
+        reader.node='esp32-02'
+        reader.file=io.StringIO()
+        self.addCleanup(reader.frames.close)
+        buffer=capture.LineBuffer()
+        received=datetime.now(timezone.utc)
+        for chunk in streams:
+            reader.raw.observe(chunk,received)
+            for raw,partial in buffer.feed(chunk): reader.accept(raw,partial,received)
+        return reader
+
+    def test_invalid_utf8_is_measured_before_replacement_without_reprocessing(self):
+        stream=b'\xff'*64+b'LADO\n'  # sintetico: no afirmar que eran los bytes historicos
+        reader=self.diagnostic_reader([stream,stream,b''])
+        self.assertEqual(reader.bytes_received,138)
+        self.assertEqual(reader.lines_written,2)
+        self.assertEqual(reader.invalid_utf8_lines,2)
+        self.assertTrue(reader.consistent())
+        self.assertEqual(reader.file.getvalue().count('\ufffd'),128)
+        self.assertEqual(reader.invalid_utf8_samples[0]['first_invalid_hex'],'ff')
+        self.assertEqual(reader.invalid_utf8_samples[0]['raw_line_bytes'],68)
+        with tempfile.TemporaryDirectory() as directory:
+            capture.finish_reader(reader,Path(directory),0,diagnostics=True)
+            data=capture.json.loads(next(Path(directory).glob('*.diagnostic.log')).read_text(encoding='utf-8'))
+            self.assertEqual(data['invalid_utf8_lines'],2)
+            self.assertEqual(data['prefix_hex'],'')
+            self.assertEqual(data['lf_burst_hex'],'')
+
+    def test_split_valid_utf8_and_timeouts_are_not_corruption(self):
+        reader=self.diagnostic_reader([b'\xc3',b'',b'\xb1\n'])
+        self.assertEqual(reader.invalid_utf8_lines,0)
+        self.assertEqual(reader.lines_written,1)
+        self.assertTrue(reader.consistent())
+
+    def test_literal_replacement_character_is_distinct_from_invalid_input_bytes(self):
+        reader=self.diagnostic_reader(['\ufffd\n'.encode('utf-8')])
+        self.assertEqual(reader.invalid_utf8_lines,0)
+        self.assertEqual(reader.replacement_lines,1)
+
+    def test_diagnostic_samples_are_bounded_and_do_not_include_sensitive_context(self):
+        reader=self.diagnostic_reader([b'\xff\n']*20)
+        self.assertEqual(reader.invalid_utf8_lines,20)
+        self.assertEqual(len(reader.invalid_utf8_samples),8)
+        hidden=self.diagnostic_reader([b'token=PRIVATE_SENTINEL\xff\n'])
+        self.assertEqual(hidden.invalid_utf8_lines,1)
+        self.assertEqual(hidden.invalid_utf8_samples,[])
+        self.assertNotIn('PRIVATE_SENTINEL',hidden.file.getvalue())
+
     def setUp(self):
         self.console = io.StringIO()
         self.redirect = redirect_stdout(self.console)
@@ -80,6 +131,18 @@ class SerialCaptureTests(unittest.TestCase):
         self.assertEqual(buffer.feed(b"to\nigual\nigual\n"),
                          [(b"resto", False), (b"igual", False), (b"igual", False)])
         self.assertEqual(buffer.finish(), [])
+
+    def test_optional_output_directory_and_stop_file_do_not_open_usb(self):
+        with tempfile.TemporaryDirectory(prefix="serial-control-unit-") as directory:
+            stop = Path(directory) / "capture.stop"
+            stop.touch()
+            output = Path(directory) / "evidence/serial"
+            args = SimpleNamespace(save=False, probe_seconds=5, output_dir=output, stop_file=stop)
+            with patch.object(capture, "usb_ports", side_effect=AssertionError("No abrir USB tras parada")):
+                self.assertEqual(capture.capture(args, config()), 2)
+            campaigns = list(output.iterdir())
+            self.assertEqual(len(campaigns), 1)
+            self.assertEqual({p.name for p in campaigns[0].glob("*.log")}, {n + ".log" for n in capture.NODES})
 
     def test_oversize_and_partial_flushed_only_once(self):
         buffer = capture.LineBuffer()

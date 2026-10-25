@@ -265,6 +265,9 @@ class PortReader(threading.Thread):
         self.complete_lines = 0
         self.partial_lines = 0
         self.empty_lines = 0
+        self.invalid_utf8_lines = 0
+        self.replacement_lines = 0
+        self.invalid_utf8_samples = []
         self.rejected_lines = 0
         self.private_key = False
         self.error = False
@@ -273,7 +276,13 @@ class PortReader(threading.Thread):
         self.source = None
 
     def accept(self, raw, partial, received):
-        message = raw.decode("utf-8", errors="replace").rstrip("\r")
+        decode_error = None
+        try:
+            message = raw.decode("utf-8")
+        except UnicodeDecodeError as error:
+            decode_error = (error.start, error.end)
+            message = raw.decode("utf-8", errors="replace")
+        message = message.rstrip("\r")
         if KEY_BEGIN.search(message):
             self.private_key = True
         hidden = self.private_key or bool(SENSITIVE.search(message))
@@ -286,6 +295,16 @@ class PortReader(threading.Thread):
             if partial and (self.partial_lines or not self.bytes_received):
                 raise LogError("Fragmento sin datos nuevos que lo respalden.")
             self.lines_received += 1
+            self.invalid_utf8_lines += int(decode_error is not None)
+            self.replacement_lines += int("\ufffd" in message)
+            if decode_error is not None and not hidden and len(self.invalid_utf8_samples) < 8:
+                first, last = decode_error
+                # Solo el tramo demostrado invalido por el codec: sin prefijos
+                # ASCII ni contexto privado. <= 8 muestras de <= 8 bytes.
+                invalid = bytes(b for b in raw[first:last] if b >= 128)[:8]
+                self.invalid_utf8_samples.append({"line": self.lines_received,
+                    "utc": received.isoformat(), "raw_line_bytes": len(raw),
+                    "first_invalid_offset": first, "first_invalid_hex": invalid.hex(" ")})
             self.partial_lines += int(partial)
             self.complete_lines += int(not partial)
             self.empty_lines += int(not message and not partial)
@@ -332,6 +351,7 @@ class PortReader(threading.Thread):
                 f"sin_asociar={len(self.frames)}, LF={self.raw.histogram[10]}, "
                 f"CR={self.raw.histogram[13]}, NUL={self.raw.histogram[0]}, "
                 f"vacias={self.empty_lines}, timeouts={self.raw.timeouts}, "
+                f"utf8_invalidas={self.invalid_utf8_lines}, "
                 f"coherente={'SI' if self.consistent() else 'NO'}, errores={self.errors}.")
 
     def record_error(self, error, stage):
@@ -370,6 +390,9 @@ class PortReader(threading.Thread):
                        "partial_lines": self.partial_lines, "empty_lines": self.empty_lines,
                        "written": self.lines_written, "pending": len(self.frames),
                        "rejected": self.rejected_lines, "consistent": self.consistent(),
+                       "invalid_utf8_lines": self.invalid_utf8_lines,
+                       "replacement_lines": self.replacement_lines,
+                       "invalid_utf8_samples": self.invalid_utf8_samples,
                        "errors": self.errors,
                        "pyserial": serial.VERSION})
         with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=campaign,
@@ -554,14 +577,14 @@ class AssociationPrompt:
         self.buffer = []
 
 
-def finish_reader(reader, campaign, diagnostic_bytes):
+def finish_reader(reader, campaign, diagnostic_bytes, diagnostics=False):
     print(reader.summary())
-    if diagnostic_bytes:
+    if diagnostic_bytes or diagnostics:
         reader.save_diagnostic(campaign)
 
 
 def capture(args, config):
-    root = Path(__file__).resolve().parents[1] / "logs" / "serial"
+    root = getattr(args, "output_dir", None) or (Path(__file__).resolve().parents[1] / "logs" / "serial")
     root.mkdir(parents=True, exist_ok=True)
     prefix = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S_%fZ_")
     campaign = Path(tempfile.mkdtemp(prefix=prefix, dir=root))
@@ -586,6 +609,9 @@ def capture(args, config):
         try:
             while not controller.stop.is_set():
                 now = time.monotonic()
+                stop_file = getattr(args, "stop_file", None)
+                if stop_file is not None and stop_file.is_file():
+                    break
                 if deadline is not None and now >= deadline:
                     break
                 if now >= next_scan:
@@ -606,7 +632,7 @@ def capture(args, config):
                             reader.join()
                             detail = "error de apertura/lectura; cierre otros monitores serie" if reader.error else "desconectado"
                             print(f"[USB] {name}: {detail}; se volvera a detectar sin fijar COM.")
-                            finish_reader(reader, campaign, diagnostic_bytes)
+                            finish_reader(reader, campaign, diagnostic_bytes, getattr(args, "diagnostics", False))
                             if reader.lines_written:
                                 written_nodes.add(reader.node)
                             del readers[name]
@@ -676,7 +702,7 @@ def capture(args, config):
                 reader.join()
                 if reader.error:
                     print(f"[USB] {reader.port.device}: desconexion, error de lectura o identidad contradictoria.")
-                finish_reader(reader, campaign, diagnostic_bytes)
+                finish_reader(reader, campaign, diagnostic_bytes, getattr(args, "diagnostics", False))
                 if reader.lines_written:
                     written_nodes.add(reader.node)
             print("Captura cerrada.", flush=True)
@@ -691,10 +717,14 @@ def main():
     parser.add_argument("--list", action="store_true", help="Enumerar USB sin abrir puertos ni crear logs.")
     parser.add_argument("--save", action="store_true", help="Guardar asociaciones sin numeros COM fijos.")
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG, help="Configuracion JSON local.")
+    parser.add_argument("--output-dir", type=Path, help="Directorio base de campañas; por defecto logs/serial.")
+    parser.add_argument("--stop-file", type=Path, help="Cerrar limpiamente al aparecer este archivo; no detiene servicios.")
     parser.add_argument("--confirm-locations", action="store_true",
                         help="Confirmar que las placas siguen en las tomas USB guardadas; permite reutilizarlas sin serie.")
     parser.add_argument("--diagnostic-bytes", type=int, default=0,
                         help="Guardar localmente hasta N bytes de muestra hexadecimal por conexion (0..256).")
+    parser.add_argument("--diagnostics", action="store_true",
+                        help="Guardar contadores RX y errores UTF-8 acotados, sin volcar prefijos ni contexto ASCII.")
     parser.add_argument("--duration", type=float, help="Cerrar limpiamente tras N segundos (0 < N <= 3600).")
     parser.add_argument("--no-console-lines", action="store_true",
                         help="Guardar todas las lineas en archivos, mostrando solo estado y contadores en consola.")
